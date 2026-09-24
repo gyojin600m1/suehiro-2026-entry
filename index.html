@@ -207,7 +207,15 @@ select{
 .rkno.m1{background:var(--gold);color:#241a00}
 .rtime{color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums}
 .pill.hl{background:var(--gold);color:#241a00;border-color:transparent;font-weight:700}
-.mem{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.7;word-break:break-word}
+.mem{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.7;word-break:break-word;
+  display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+/* リレーの泳者: 1人ずつ小さなカード（名前＋小さなひらがな）。押すと📣応援 */
+.mem .mb{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:48px;padding:3px 9px;border-radius:9px;background:rgba(140,155,185,.10);
+  border:1px solid var(--border2);color:var(--text);font-size:12.5px;font-weight:600;line-height:1.25}
+.mem .mb[data-ch]{cursor:pointer}
+.mem .mb small{font-size:10px;font-weight:500;color:var(--muted)}
+.mem .msep{color:var(--dim);font-size:11px}
 .mem .mh{display:inline-block;margin-right:6px;padding:1px 6px;border-radius:6px;
   background:rgba(140,155,185,.14);color:var(--muted);font-size:11px}
 /* ---------- 当日プラン（meta.dayPlan があるときだけ） ---------- */
@@ -549,8 +557,25 @@ const tmTag = (e,tag,cls) => META.noTimes ? "" : `<${tag} class="${cls}">${esc(s
 /* ---------- 競技結果（entries[].result / relays[].result があるときだけ） ---------- */
 const MEDAL = {1:"🥇",2:"🥈",3:"🥉"};
 /* リレーの泳者。泳ぐ順に並んでいるので「→」でつなぐ（泳順未定の名簿は meta.relayMemberLabel で「メンバー」＋「・」区切り）。 */
-const memLine = x => (x && x.members && x.members.length)
-  ? `<div class="mem"><span class="mh">${esc(META.relayMemberLabel||"泳順")}</span>${x.members.map(esc).join(META.relayMemberLabel==="泳順" ? " → " : "・")}</div>` : "";
+/* 泳者は1人ずつ小さなカードにして、公式の読みがあるときは名前の下に小さくひらがなを出す。
+   押すとその子の📣応援（◀ ▶ は同じチームの泳者を泳順に送る）。 */
+function memPerson(name, x){
+  const n = nx(name);
+  let s = SW.get(n + "@" + nx(x.team));
+  if(!s){ const c = [...SW.values()].filter(v => nx(v.name) === n); if(c.length === 1) s = c[0]; }   // 県別リレー等でチーム名が学校と違う
+  return {name, kana:(s&&s.kana)||"", team:(s&&s.team)||x.team, grade:(s&&s.grade)||"", gender:(s&&s.gender)||x.gender};
+}
+function memLine(x){
+  if(!(x && x.members && x.members.length)) return "";
+  const g = "mem" + CH_ROWS.length;
+  const chips = x.members.map(m => {
+    const p = memPerson(m, x);
+    const ch = chBtn(p, g) ? ` data-ch="${chLast()}" role="button" tabindex="0" aria-label="${esc(m)}を大きく表示（応援用）"` : "";
+    const kn = (META.showKana && p.kana) ? `<small>${esc(toHira(p.kana))}</small>` : "";
+    return `<span class="mb"${ch}>${esc(m)}${kn}</span>`;
+  });
+  return `<div class="mem"><span class="mh">${esc(META.relayMemberLabel||"泳順")}</span>${chips.join(META.relayMemberLabel==="泳順" ? `<span class="msep">→</span>` : "")}</div>`;
+}
 const rdOf = x => (PROG_BY_NO.get((x.programNos||[])[0]) || {}).round || "";
 const isFinalA = x => /^決勝$|^タイム決勝/.test(rdOf(x));   // 「タイム決勝①②」（午前・午後に分かれた長距離）も決勝
 const isFinalB = x => /決勝/.test(rdOf(x)) && !isFinalA(x);
