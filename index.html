@@ -1458,7 +1458,7 @@ function viewLn(){
     const m = new Map();
     for(const e of list){
       if(!(e.heat && e.lane != null)) continue;
-      if(!m.has(e.heat)) m.set(e.heat, {n:0, seat:new Map()});
+      if(!m.has(e.heat)) m.set(e.heat, {no:e.heat, n:0, seat:new Map()});   // 確定値は本当の組番号で出す（一部の選手だけの版で番号がずれないように）
       m.get(e.heat).seat.set(e.lane, e); m.get(e.heat).n++;
     }
     heats = [...m.entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
@@ -1471,16 +1471,17 @@ function viewLn(){
         順位・賞状は<b>学年区分ごと</b>です。同じ組で先にゴールした人がいても、区分が違えば順位は別に付きます。</div>`
     : "";
   const note = confirmed
-    ? `<div class="note">大会プログラム掲載の<b>確定した組・レーン</b>です。棄権等で当日変わる場合があります。</div>`
+    ? `<div class="note">大会プログラム掲載の<b>確定した組・レーン</b>です。棄権等で当日変わる場合があります。${META.laneListedOnly?`<br>${esc(META.laneListedOnly===true?"このページに載っている選手":META.laneListedOnly)}のレーンだけを出しています。`:""}</div>`
     : `<div class="note">これは<b>予想</b>で、公式のスタートリストではありません。エントリータイム順・${LANES.length}レーン想定で計算しています。
         第1組＝最も遅い組、組内は速い順に ${laneOrder(LANES).join("→")} の順で並べ、NT（タイムなし）は最も遅い扱いです。</div>`;
 
   const body = heats.map((h,hi)=>`<div class="heat">
-      <div class="heat-h"><b>第${hi+1}組</b><span class="n">${h.n}${UNIT}${hi===0&&!confirmed?" ／ 最も遅い組":""}${hi===heats.length-1&&heats.length>1&&!confirmed?" ／ 最も速い組":""}</span></div>
+      <div class="heat-h"><b>第${h.no||hi+1}組</b><span class="n">${h.n}${UNIT}${hi===0&&!confirmed?" ／ 最も遅い組":""}${hi===heats.length-1&&heats.length>1&&!confirmed?" ／ 最も速い組":""}</span></div>
       ${LANES.map(l=>{
         const e = h.seat.get(l);
+        if(!e && META.laneListedOnly) return "";   // 一部の選手だけ載せた版（地元だけ等）: 他の子のレーンを「空き」と見せない
         if(!e) return `<div class="ln empty-ln"><div class="ln-no">${l}</div><div class="ln-b"><div class="ln-nm">（空き）</div></div></div>`;
-        const chb = chBtn(e, "ln", {evLabel:`No.${r.nos.join("・")} ${r.mixGender?"男女":glabel(r.gender)} ${raceEvent(r)}${r.label?" "+r.label:""}`, heat:hi+1, lane:l});
+        const chb = chBtn(e, "ln", {evLabel:`No.${r.nos.join("・")} ${r.mixGender?"男女":glabel(r.gender)} ${raceEvent(r)}${r.label?" "+r.label:""}`, heat:h.no||hi+1, lane:l});
         return `<div class="ln ${gcls(e.gender)}${isMk(e)?" hl":""}"${chb?` data-chrow="${chLast()}"`:""}>
           <div class="ln-no">${l}</div>
           <div class="ln-b">
@@ -1500,7 +1501,7 @@ function viewLn(){
   const rb = (x, d) => x ? `<button class="tab" data-lngo="${d}" style="min-height:52px;flex:1;min-width:0;background:var(--card2);border-radius:11px;border:1px solid var(--border);color:var(--accent);font-size:12px;white-space:normal;line-height:1.3">${d<0?"◀ ":""}${rlab(x)}${d>0?" ▶":""}</button>` : `<span style="flex:1"></span>`;
   const rnav = `<div style="display:flex;gap:8px;margin:0 0 10px">${rb(rpv,-1)}${rb(rnx,1)}</div>`;
   return head + rnav + rcHead(r) + together + note +
-    `<div class="count"><b>${list.length}</b>${UNIT} ／ ${heats.length}組（${LANES.length}レーン）</div>` + body + rnav;
+    `<div class="count"><b>${list.length}</b>${UNIT} ／ ${META.laneListedOnly ? `全${(PROG_BY_NO.get(r.nos[0])||{}).heats || heats.length}組のうち${heats.length}組に出場` : `${heats.length}組（${LANES.length}レーン）`}</div>` + body + rnav;
 }
 
 /* ---------- タブ6：大会情報（meta.info があるときだけ） ---------- */
