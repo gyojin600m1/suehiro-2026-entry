@@ -441,7 +441,19 @@ const LV = (()=>{
   const CK = "lv:" + GAME;
   const nz = s => String(s||"").normalize("NFKC").replace(/[\s　]/g,"").toLowerCase();
   let cache = {rows:{}, sig:{}};
-  try{ const c = JSON.parse(localStorage.getItem(CK) || "null"); if(c && c.rows) cache = c; }catch(_){}
+  /* 公式APIの1行は約2.5KB（ラップ等の列が大量）。そのまま全種目ぶん覚えると7MBを超え、
+     iPhoneの保存上限（約5MB）で保存に失敗 → 読み直すたびに古い速報へ戻り、新しい決勝が入らなかった（2026-09-26 No.37）。
+     使う列だけを残す */
+  const KEEP = ["swimmer_id_for_this_game","heat","lane_adjusted","swimmer_name","entry_group_name1","result_time","rank",
+                "reason_code","reason_code_display_name","new_record_bord_mark","new_record_print_mark"];
+  const slim = x => { const o = {}; for(const k of KEEP) if(x[k] != null && x[k] !== "") o[k] = x[k]; return o; };
+  try{
+    const c = JSON.parse(localStorage.getItem(CK) || "null");
+    if(c && c.rows){
+      for(const r of Object.values(c.rows)){ r.res = (r.res||[]).map(slim); r.start = (r.start||[]).map(slim); }
+      cache = c;
+    }
+  }catch(_){}
   const save = () => { try{ localStorage.setItem(CK, JSON.stringify(cache)); }catch(_){} };
 
   const resOf = x => {
@@ -592,12 +604,12 @@ const LV = (()=>{
         const c = {res:[], start:[]};
         if(started){
           c.res = (await get(`result/race_rank_by_prog?game_code=${GAME}&program_id=${pid}&class_code=1`))
-                    .filter(x => x.result_time || String(x.reason_code||"0") !== "0");
+                    .filter(x => x.result_time || String(x.reason_code||"0") !== "0").map(slim);
         }
         if(needStart){
           for(const h of hs){
             if(h.race_status === "9") continue;
-            try{ c.start.push(...await get(`result/race?game_code=${GAME}&program_id=${pid}&heat=${h.heat}&raceStatus=0`)); }catch(_){}
+            try{ c.start.push(...(await get(`result/race?game_code=${GAME}&program_id=${pid}&heat=${h.heat}&raceStatus=0`)).map(slim)); }catch(_){}
           }
         }
         cache.rows[no] = c; cache.sig[no] = sig; dirty = true;
