@@ -1270,7 +1270,7 @@ function viewEv(){
   const opts = EVENTS.map((e,i)=>`<option value="${i}" ${i===ST.ev?"selected":""}>No.${e.no} ${esc(e.key)}（${e.list.length}名）</option>`).join("");
   if(!g) return `<div class="empty"><span class="e">🏊</span>種目データがありません</div>`;
   const done = hasRes(g.list);
-  const list = done ? [...g.list].sort((a,b)=> resKey(a)-resKey(b) || resSec(a)-resSec(b)) : g.list;
+  const list = done ? [...g.list].sort((a,b)=> resKey(a)-resKey(b) || resSec(a)-resSec(b)) : officialLaneSort(g.list);
   const rows = list.map((e,i)=>{ const chb = chBtn(e, "ev", {evLabel:"No."+g.no+" "+g.key});
     return `<div class="sw ${gcls(e.gender)}${isMk(e)?" hl":""}${chb?" hasch":""}"${chb?` data-chrow="${chLast()}"`:""}>${chb}
       <div class="sw-r1">
@@ -1286,7 +1286,7 @@ function viewEv(){
           : tmTag(e,"span","sw-bd")}
       </div>
       <div class="sw-r2">
-        <span class="sw-tm">${esc(e.team)}</span>${mkPill(e)}
+        <span class="sw-tm">${esc(e.team)}</span>${officialLanePill(e)}${mkPill(e)}
         ${e.grade?`<span class="pill">${esc(shortGrade(e.grade))}</span>`:""}
         <span class="pill ${gcls(e.gender)}">${isF(e.gender)?"女子":"男子"}</span>
         ${ovPill(e)}${advPill(e)}
@@ -1305,6 +1305,19 @@ function viewEv(){
 }
 
 /* ---------- タブ3：日程（プログラム） ---------- */
+function officialLanePill(e){
+  return META.laneConfirmed && e && e.heat != null && e.lane != null
+    ? `<span class="pill" style="color:var(--gold)">第${esc(e.heat)}組 ${esc(e.lane)}レーン</span>` : "";
+}
+function officialLaneSort(list){
+  return [...list].sort((a,b)=>{
+    const ah = a.heat != null ? Number(a.heat) : 9999;
+    const bh = b.heat != null ? Number(b.heat) : 9999;
+    const al = a.lane != null ? Number(a.lane) : 9999;
+    const bl = b.lane != null ? Number(b.lane) : 9999;
+    return ah-bh || al-bl || secOf(a)-secOf(b) || a.name.localeCompare(b.name,"ja");
+  });
+}
 function viewPg(){
   const days = [...new Set(PROGRAM.map(p=>p.day).filter(Boolean))];
   const segs = days.length>1
@@ -1319,10 +1332,10 @@ function viewPg(){
     const list0 = ENTRIES.filter(e => (e.programNos||[]).includes(ST.pgNo))
       .concat(RELAYS.filter(r => (r.programNos||[]).includes(ST.pgNo))
                     .map(r => Object.assign({}, r, {name:r.team, team:"", isRelay:true})))
-      .sort((a,b)=> secOf(a)-secOf(b));
-    // 結果が出たら順位順に並べ替える（申込タイム順のままだと1位が真ん中に来て読めない）
+      ;
+    // 公式の組・レーンがある場合は、申込タイム順ではなく「第1組→第2組…／各組はレーン順」で表示する。
     const done = hasRes(list0);
-    const list = done ? [...list0].sort((a,b)=> resKey(a)-resKey(b) || resSec(a)-resSec(b)) : list0;
+    const list = done ? [...list0].sort((a,b)=> resKey(a)-resKey(b) || resSec(a)-resSec(b)) : officialLaneSort(list0);
     const unit = list.length && list.every(e => e.isRelay) ? "チーム" : "名";
     const rc = RACE_BY_NO.get(ST.pgNo);
     const together = (rc && (rc.nos.length > 1 || rc.classes.length > 1))
@@ -1349,7 +1362,7 @@ function viewPg(){
         <div class="sw-r1"><span class="sw-nm">${esc(e.name)}</span>${
           e.result ? `<span class="sw-bd" style="color:var(--gold)">${esc(e.result.time || e.result.note || "")}</span>${recMk(e)}`
                    : tmTag(e,"span","sw-bd")}</div>
-        <div class="sw-r2">${e.team?`<span class="sw-tm">${esc(e.team)}</span>`:""}${mkPill(e)}
+        <div class="sw-r2">${e.team?`<span class="sw-tm">${esc(e.team)}</span>`:""}${officialLanePill(e)}${mkPill(e)}
           ${e.grade?`<span class="pill">${esc(shortGrade(e.grade))}</span>`:""}
           <span class="pill ${gcls(e.gender)}">${isF(e.gender)?"女子":"男子"}</span>
           ${e.result&&e.result.rank?`<span class="pill rk${e.result.rank===1&&isFinalA(e)?" m1":""}">${medalOf(e)}${e.result.rank}位</span>${ovPill(e)}${advPill(e)}`:""}
