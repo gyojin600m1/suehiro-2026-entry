@@ -447,14 +447,27 @@ const LV = (()=>{
   const KEEP = ["swimmer_id_for_this_game","heat","lane_adjusted","swimmer_name","entry_group_name1","result_time","rank",
                 "reason_code","reason_code_display_name","new_record_bord_mark","new_record_print_mark"];
   const slim = x => { const o = {}; for(const k of KEEP) if(x[k] != null && x[k] !== "") o[k] = x[k]; return o; };
-  try{
-    const c = JSON.parse(localStorage.getItem(CK) || "null");
-    if(c && c.rows){
+  // 同じ github.io には他の大会アプリも同居していて保存の上限を分け合う。
+  // localStorage に入らなければ sessionStorage に置く（読み直しで消えないように）。読むときは新しいほう
+  const load = st => { try{ const c = JSON.parse(st.getItem(CK) || "null"); return c && c.rows ? c : null; }catch(_){ return null; } };
+  {
+    const a = load(localStorage), b = load(sessionStorage);
+    const c = (a && b) ? ((b.ts||0) > (a.ts||0) ? b : a) : (a || b);
+    if(c){
       for(const r of Object.values(c.rows)){ r.res = (r.res||[]).map(slim); r.start = (r.start||[]).map(slim); }
       cache = c;
     }
-  }catch(_){}
-  const save = () => { try{ localStorage.setItem(CK, JSON.stringify(cache)); }catch(_){} };
+  }
+  const save = () => {
+    const v = JSON.stringify(cache);
+    try{ localStorage.setItem(CK, v); try{ sessionStorage.removeItem(CK); }catch(_){} return; }catch(_){}
+    try{   // 終わった大会の速報（lv:ほかの大会）を消してもう一度
+      for(let i = localStorage.length - 1; i >= 0; i--){ const k = localStorage.key(i); if(k && k.startsWith("lv:") && k !== CK) localStorage.removeItem(k); }
+      localStorage.setItem(CK, v); return;
+    }catch(_){}
+    try{ localStorage.removeItem(CK); }catch(_){}
+    try{ sessionStorage.setItem(CK, v); }catch(_){}
+  };
 
   const resOf = x => {
     const r = {};
