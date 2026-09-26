@@ -578,7 +578,11 @@ const LV = (()=>{
     let dirty = false;
     for(const [no, hs] of byNo){
       const sig = hs.map(h => h.heat+":"+h.race_status+":"+h.startlist_num+":"+h.updated_at).join(",");
-      if(cache.sig[no] === sig && cache.rows[no]) continue;
+      // 決勝のスタートリストを空のまま覚えると、組の情報が変わるまで取り直さない。
+      // まだ終わっていない決勝で名簿が空なら、全体の一覧を取り直すたび（60秒ごと）にもう一度見る
+      const emptyStart = full && cache.rows[no] && !(cache.rows[no].start||[]).length && !(cache.rows[no].res||[]).length
+        && /決勝/.test(hs[0].race_division_name || "") && hs.some(h => h.race_status !== "9");
+      if(cache.sig[no] === sig && cache.rows[no] && !emptyStart) continue;
       const pid = hs[0].program_id;
       const started = hs.some(h => h.race_status === "1" || h.race_status === "9");
       const isFinal = /決勝/.test(hs[0].race_division_name || "");
